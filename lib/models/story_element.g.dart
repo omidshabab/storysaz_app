@@ -70,7 +70,7 @@ class TextElementAdapter extends TypeAdapter<TextElement> {
       fontSize: fields[6] as double,
       rotation: fields[3] as double,
       scale: fields[4] as double,
-      hasBackground: fields[8] as bool? ?? false,
+      hasBackground: fields[8] as bool,
     )..colorValue = fields[7] as int;
   }
 

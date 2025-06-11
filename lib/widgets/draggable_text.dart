@@ -167,49 +167,42 @@ class _DraggableTextState extends State<DraggableText>
                                       child: SafeArea(
                                         child: Scaffold(
                                           backgroundColor: Colors.transparent,
-                                          body: Expanded(
-                                            child: Padding(
-                                              padding:
-                                                  EdgeInsets.only(bottom: 25),
-                                              child: Column(
-                                                mainAxisAlignment:
-                                                    MainAxisAlignment.start,
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.center,
-                                                children: [
-                                                  Padding(
-                                                    padding: EdgeInsets.all(25),
-                                                    child: Row(
+                                          body: Column(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              Container(
+                                                margin:
+                                                    const EdgeInsets.symmetric(
+                                                        horizontal: 20),
+                                                padding:
+                                                    const EdgeInsets.all(20),
+                                                decoration: BoxDecoration(
+                                                  color:
+                                                      widget.parentBackgroundColor ==
+                                                              const Color(
+                                                                  0xFF18181B)
+                                                          ? Colors.white
+                                                              .withOpacity(0.1)
+                                                          : Colors.black
+                                                              .withOpacity(0.1),
+                                                  borderRadius:
+                                                      BorderRadius.circular(15),
+                                                ),
+                                                child: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .spaceBetween,
                                                       children: [
-                                                        AppIconButton(
-                                                          icon: Ionicons
-                                                              .close_outline,
-                                                          onPressed: () {
-                                                            _animationController
-                                                                .reverse();
-                                                            Navigator.pop(
-                                                                context);
-                                                          },
-                                                          color: widget
-                                                              .displayColor,
-                                                          borderColor: widget
-                                                                      .parentBackgroundColor ==
-                                                                  const Color(
-                                                                      0xFF18181B)
-                                                              ? Colors.white
-                                                                  .withOpacity(
-                                                                      0.1)
-                                                              : Colors.black
-                                                                  .withOpacity(
-                                                                      0.1),
-                                                        ),
-                                                        SizedBox(width: 10),
                                                         AppIconButton(
                                                           icon: IconlyLight
                                                               .delete,
                                                           onPressed: () {
                                                             widget.onDelete();
-
                                                             Navigator.pop(
                                                                 context);
                                                           },
@@ -226,7 +219,6 @@ class _DraggableTextState extends State<DraggableText>
                                                                   .withOpacity(
                                                                       0.1),
                                                         ),
-                                                        SizedBox(width: 10),
                                                         AppIconButton(
                                                           icon: Ionicons
                                                               .square_outline,
@@ -249,7 +241,6 @@ class _DraggableTextState extends State<DraggableText>
                                                                   .withOpacity(
                                                                       0.1),
                                                         ),
-                                                        SizedBox(width: 10),
                                                         AppIconButton(
                                                           icon: Ionicons
                                                               .checkmark_outline,
@@ -305,83 +296,59 @@ class _DraggableTextState extends State<DraggableText>
                                                         ),
                                                       ],
                                                     ),
-                                                  ),
-                                                  Expanded(
-                                                    child: Column(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .center,
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .center,
-                                                      children: [
-                                                        Container(
-                                                          decoration:
-                                                              hasTextBackgroundLocal
-                                                                  ? BoxDecoration(
-                                                                      color: widget.parentBackgroundColor ==
-                                                                              const Color(
-                                                                                  0xFF18181B)
-                                                                          ? Colors
-                                                                              .white
-                                                                              .withOpacity(0.05)
-                                                                          : const Color(0xFF18181B).withOpacity(0.05),
-                                                                      borderRadius:
-                                                                          BorderRadius
-                                                                              .zero,
-                                                                    )
-                                                                  : null,
-                                                          padding:
-                                                              EdgeInsets.zero,
-                                                          child: IntrinsicWidth(
-                                                            child:
-                                                                IntrinsicHeight(
-                                                              child: TextField(
-                                                                controller:
-                                                                    textEditingController,
-                                                                textAlign:
-                                                                    TextAlign
-                                                                        .center,
-                                                                textAlignVertical:
-                                                                    TextAlignVertical
-                                                                        .center,
-                                                                cursorColor: widget
-                                                                    .displayColor,
-                                                                minLines: 1,
-                                                                maxLines: 10,
-                                                                style:
-                                                                    TextStyle(
-                                                                  color: widget
-                                                                      .displayColor,
-                                                                  fontSize: 35,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w500,
-                                                                  letterSpacing:
-                                                                      -2.5,
-                                                                ),
-                                                                decoration:
-                                                                    InputDecoration(
-                                                                  hintText:
-                                                                      "تغییر متن",
-                                                                  border:
-                                                                      InputBorder
-                                                                          .none,
-                                                                  contentPadding:
-                                                                      EdgeInsets
-                                                                          .zero,
-                                                                  isDense: true,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ),
+                                                    const SizedBox(height: 20),
+                                                    Container(
+                                                      constraints:
+                                                          BoxConstraints(
+                                                        maxWidth: MediaQuery.of(
+                                                                    context)
+                                                                .size
+                                                                .width *
+                                                            0.8,
+                                                        maxHeight:
+                                                            MediaQuery.of(
+                                                                        context)
+                                                                    .size
+                                                                    .height *
+                                                                0.3,
+                                                      ),
+                                                      child: TextField(
+                                                        controller:
+                                                            textEditingController,
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                        textAlignVertical:
+                                                            TextAlignVertical
+                                                                .center,
+                                                        cursorColor:
+                                                            widget.displayColor,
+                                                        minLines: 1,
+                                                        maxLines: 10,
+                                                        style: TextStyle(
+                                                          color: widget
+                                                              .displayColor,
+                                                          fontSize: widget
+                                                              .textElement
+                                                              .fontSize,
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                          letterSpacing: -2.5,
                                                         ),
-                                                      ],
+                                                        decoration:
+                                                            InputDecoration(
+                                                          hintText: "تغییر متن",
+                                                          border:
+                                                              InputBorder.none,
+                                                          contentPadding:
+                                                              EdgeInsets.zero,
+                                                          isDense: true,
+                                                        ),
+                                                      ),
                                                     ),
-                                                  ),
-                                                ],
+                                                  ],
+                                                ),
                                               ),
-                                            ),
+                                            ],
                                           ),
                                         ),
                                       ),

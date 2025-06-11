@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:storysaz/models/color_adapter.dart';
 import 'package:storysaz/models/story_element.dart';
+import 'package:storysaz/models/media_element.dart';
 import 'package:storysaz/screens/story_editor_screen.dart';
 
 void main() async {
@@ -12,6 +13,7 @@ void main() async {
   Hive.registerAdapter(StoryElementAdapter());
   Hive.registerAdapter(TextElementAdapter());
   Hive.registerAdapter(ColorAdapter());
+  Hive.registerAdapter(MediaElementAdapter());
 
   await Hive.openBox<List<dynamic>>('stories');
   await Hive.openBox<int>('app_settings');
