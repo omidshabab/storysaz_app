@@ -70,19 +70,22 @@ class TextElementAdapter extends TypeAdapter<TextElement> {
       fontSize: fields[6] as double,
       rotation: fields[3] as double,
       scale: fields[4] as double,
+      hasBackground: fields[8] as bool? ?? false,
     )..colorValue = fields[7] as int;
   }
 
   @override
   void write(BinaryWriter writer, TextElement obj) {
     writer
-      ..writeByte(8)
+      ..writeByte(9)
       ..writeByte(5)
       ..write(obj.text)
       ..writeByte(6)
       ..write(obj.fontSize)
       ..writeByte(7)
       ..write(obj.colorValue)
+      ..writeByte(8)
+      ..write(obj.hasBackground)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)

@@ -7,7 +7,6 @@ import 'package:storysaz/widgets/icon_button.dart';
 import 'package:uuid/uuid.dart';
 import '../models/story_element.dart';
 import '../widgets/draggable_text.dart';
-import '../widgets/text_editing_controls.dart';
 
 class StoryEditorScreen extends StatefulWidget {
   const StoryEditorScreen({super.key});
@@ -16,16 +15,17 @@ class StoryEditorScreen extends StatefulWidget {
   State<StoryEditorScreen> createState() => _StoryEditorScreenState();
 }
 
-class _StoryEditorScreenState extends State<StoryEditorScreen> {
+class _StoryEditorScreenState extends State<StoryEditorScreen>
+    with SingleTickerProviderStateMixin {
   final List<TextElement> texts = [];
-  String selectedBackground = 'assets/backgrounds/bg1.png';
   final screenshotController = ScreenshotController();
   TextElement? selectedText;
-  final backgrounds = [
-    'assets/backgrounds/bg1.png',
-    'assets/backgrounds/bg2.png',
-    'assets/backgrounds/bg3.png',
-  ];
+  bool _isSolidColorBackground = false;
+  Color _solidBackgroundColor = Colors.white;
+  int _savedBackgroundColorValue = Colors.white.value;
+
+  IconData _saveIcon = Ionicons.cloud_download_outline;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -33,19 +33,35 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     loadSavedStory();
   }
 
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
   Future<void> loadSavedStory() async {
     final box = Hive.box<List<dynamic>>('stories');
+    final settingsBox = Hive.box<int>('app_settings');
     final savedStory = box.get('current_story');
+    final savedBgColor = settingsBox.get('background_color_value');
+
     if (savedStory != null) {
       setState(() {
         texts.addAll(savedStory.cast<TextElement>());
+      });
+    }
+    if (savedBgColor != null) {
+      setState(() {
+        _solidBackgroundColor = Color(savedBgColor);
       });
     }
   }
 
   Future<void> saveStory() async {
     final box = Hive.box<List<dynamic>>('stories');
+    final settingsBox = Hive.box<int>('app_settings');
     await box.put('current_story', texts);
+    await settingsBox.put(
+        'background_color_value', _solidBackgroundColor.value);
   }
 
   void addNewText(double x, double y) {
@@ -63,12 +79,54 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
   }
 
   Future<void> exportStory() async {
-    final image = await screenshotController.capture();
-    if (image != null) {
-      await ImageGallerySaver.saveImage(image);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Story saved to gallery')),
-      );
+    if (_isSaving) return;
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    IconData tempIcon; // Temporarily hold the icon for success/failure
+
+    try {
+      final image = await screenshotController.capture();
+      if (image != null) {
+        final result = await ImageGallerySaver.saveImage(image);
+
+        if (mounted) {
+          tempIcon = result['isSuccess']
+              ? Ionicons.checkmark_outline
+              : Ionicons.close_circle_outline;
+
+          setState(() {
+            _saveIcon = tempIcon;
+          });
+
+          await Future.delayed(const Duration(seconds: 3));
+
+          if (mounted) {
+            setState(() {
+              _saveIcon = Ionicons.cloud_download_outline;
+              _isSaving = false;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        tempIcon = Ionicons.close_circle_outline;
+        setState(() {
+          _saveIcon = tempIcon;
+        });
+
+        await Future.delayed(const Duration(seconds: 3));
+
+        if (mounted) {
+          setState(() {
+            _saveIcon = Ionicons.cloud_download_outline;
+            _isSaving = false;
+          });
+        }
+      }
     }
   }
 
@@ -79,28 +137,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        // appBar: AppBar(
-        //   title: const Text(
-        //     "استوری ساز",
-        //     style: TextStyle(
-        //       fontSize: 25,
-        //       fontWeight: FontWeight.w600,
-        //       letterSpacing: -1,
-        //       color: Color(0xff3B3B3B),
-        //     ),
-        //   ),
-        //   actions: [
-        //     IconButton(
-        //       icon: const Icon(Icons.add),
-        //       onPressed: _addNewText,
-        //     ),
-        //     IconButton(
-        //       icon: const Icon(Icons.save),
-        //       onPressed: _exportStory,
-        //     ),
-        //   ],
-        // ),
-
         body: Stack(
           children: [
             Screenshot(
@@ -109,10 +145,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                 width: 1080,
                 height: 1920,
                 decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage(selectedBackground),
-                    fit: BoxFit.cover,
-                  ),
+                  color: _solidBackgroundColor,
                 ),
                 child: Stack(
                   children: texts.map((textElement) {
@@ -140,52 +173,45 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                         });
                         saveStory();
                       },
+                      displayColor:
+                          _solidBackgroundColor == const Color(0xFF18181B)
+                              ? Colors.white
+                              : Colors.black87,
+                      parentBackgroundColor: _solidBackgroundColor,
                     );
                   }).toList(),
                 ),
               ),
             ),
-
             SafeArea(
               child: Container(
-                decoration: BoxDecoration(
-                    // color: Colors.black,
-                    ),
-                padding: EdgeInsets.symmetric(
+                padding: const EdgeInsets.symmetric(
                   horizontal: 25,
                   vertical: 10,
                 ),
                 child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
-                    // AppIconButton(
-                    //   icon: Ionicons.text_outline,
-                    //   onPressed: () {
-                    //     addNewText(
-                    //       screen.width / 3,
-                    //       screen.height / 2,
-                    //     );
-                    //   },
-                    // ),
-
                     Text(
                       "استوری ساز",
                       style: TextStyle(
                         fontSize: 25,
-                        color: Colors.black.withOpacity(0.8),
+                        color: _solidBackgroundColor == const Color(0xFF18181B)
+                            ? Colors.white
+                            : Colors.black87,
                         fontWeight: FontWeight.w600,
                         letterSpacing: -1,
                       ),
-                    )
+                    ),
                   ],
                 ),
               ),
             ),
-
             SafeArea(
               child: Container(
                 width: screen.width,
                 height: screen.height,
-                alignment: Alignment.bottomRight,
+                alignment: Alignment.bottomLeft,
                 padding: EdgeInsets.symmetric(
                   horizontal: 25,
                   vertical: 10,
@@ -194,6 +220,26 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      transitionBuilder:
+                          (Widget child, Animation<double> animation) {
+                        return FadeTransition(opacity: animation, child: child);
+                      },
+                      child: AppIconButton(
+                        key: ValueKey(_saveIcon),
+                        icon: _saveIcon,
+                        onPressed: exportStory,
+                        color: _solidBackgroundColor == const Color(0xFF18181B)
+                            ? Colors.white
+                            : Colors.black87,
+                        borderColor:
+                            _solidBackgroundColor == const Color(0xFF18181B)
+                                ? Colors.white.withOpacity(0.1)
+                                : Colors.black.withOpacity(0.1),
+                      ),
+                    ),
+                    SizedBox(width: 10),
                     AppIconButton(
                       icon: Ionicons.text_outline,
                       onPressed: () {
@@ -202,61 +248,40 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                           screen.height / 2,
                         );
                       },
+                      color: _solidBackgroundColor == const Color(0xFF18181B)
+                          ? Colors.white
+                          : Colors.black87,
+                      borderColor:
+                          _solidBackgroundColor == const Color(0xFF18181B)
+                              ? Colors.white.withOpacity(0.1)
+                              : Colors.black.withOpacity(0.1),
+                    ),
+                    SizedBox(width: 10),
+                    AppIconButton(
+                      icon: Ionicons.filter_circle_outline,
+                      onPressed: () {
+                        setState(() {
+                          _solidBackgroundColor =
+                              _solidBackgroundColor == const Color(0xFF18181B)
+                                  ? Colors.white
+                                  : const Color(0xFF18181B);
+                        });
+                        saveStory();
+                      },
+                      color: _solidBackgroundColor == const Color(0xFF18181B)
+                          ? Colors.white
+                          : Colors.black87,
+                      borderColor:
+                          _solidBackgroundColor == const Color(0xFF18181B)
+                              ? Colors.white.withOpacity(0.1)
+                              : Colors.black.withOpacity(0.1),
                     ),
                   ],
                 ),
               ),
             ),
-            // if (_selectedText != null)
-            //   Positioned(
-            //     bottom: 0,
-            //     left: 0,
-            //     right: 0,
-            //     child: TextEditingControls(
-            //       textElement: _selectedText!,
-            //       onChanged: (text) {
-            //         setState(() {
-            //           final index = _texts.indexWhere((t) => t.id == text.id);
-            //           _texts[index] = text;
-            //         });
-            //         _saveStory();
-            //       },
-            //     ),
-            //   ),
           ],
         ),
-        // bottomSheet: Container(
-        //   height: 100,
-        //   child: ListView.builder(
-        //     scrollDirection: Axis.horizontal,
-        //     itemCount: _backgrounds.length,
-        //     itemBuilder: (context, index) {
-        //       return GestureDetector(
-        //         onTap: () {
-        //           setState(() {
-        //             _selectedBackground = _backgrounds[index];
-        //           });
-        //         },
-        //         child: Container(
-        //           width: 80,
-        //           margin: const EdgeInsets.all(8),
-        //           decoration: BoxDecoration(
-        //             border: Border.all(
-        //               color: _selectedBackground == _backgrounds[index]
-        //                   ? Colors.blue
-        //                   : Colors.transparent,
-        //               width: 2,
-        //             ),
-        //             image: DecorationImage(
-        //               image: AssetImage(_backgrounds[index]),
-        //               fit: BoxFit.cover,
-        //             ),
-        //           ),
-        //         ),
-        //       );
-        //     },
-        //   ),
-        // ),
       ),
     );
   }

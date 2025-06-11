@@ -40,6 +40,9 @@ class TextElement extends StoryElement {
   @HiveField(7)
   int colorValue; // Changed from Color to int
 
+  @HiveField(8)
+  bool hasBackground; // New field for text background
+
   Color get color => Color(colorValue); // Getter for color
 
   TextElement({
@@ -51,6 +54,7 @@ class TextElement extends StoryElement {
     Color color = Colors.black, // Accept Color in constructor
     double rotation = 0.0,
     double scale = 1.0,
+    this.hasBackground = false, // Initialize new field
   })  : this.colorValue =
             color.value, // Store color value instead of Color object
         super(id: id, x: x, y: y, rotation: rotation, scale: scale);

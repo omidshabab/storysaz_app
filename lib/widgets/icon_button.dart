@@ -6,11 +6,15 @@ import 'package:flutter/material.dart';
 class AppIconButton extends StatelessWidget {
   IconData icon;
   VoidCallback onPressed;
+  Color? color;
+  Color? borderColor;
 
   AppIconButton({
     super.key,
     required this.icon,
     required this.onPressed,
+    this.color,
+    this.borderColor,
   });
 
   @override
@@ -22,7 +26,8 @@ class AppIconButton extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             color: Colors.transparent,
-            border: Border.all(width: 1, color: Colors.black.withOpacity(0.1)),
+            border: Border.all(
+                width: 1, color: borderColor ?? Colors.black.withOpacity(0.1)),
             borderRadius: BorderRadius.circular(50),
           ),
           child: InkWell(
@@ -36,7 +41,7 @@ class AppIconButton extends StatelessWidget {
               padding: const EdgeInsets.all(10),
               child: Icon(
                 icon,
-                color: Colors.black,
+                color: color ?? Colors.black,
               ),
             ),
           ),
