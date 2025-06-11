@@ -222,7 +222,7 @@ class _DraggableTextState extends State<DraggableText>
                                                     const SizedBox(width: 10),
                                                     AppIconButton(
                                                       icon: Ionicons
-                                                          .square_outline,
+                                                          .radio_button_off_outline,
                                                       onPressed: () {
                                                         setStateLocal(() {
                                                           hasTextBackgroundLocal =
@@ -297,58 +297,58 @@ class _DraggableTextState extends State<DraggableText>
                                               ),
                                               Expanded(
                                                 child: Center(
-                                                  child: Container(
-                                                    decoration:
-                                                        hasTextBackgroundLocal
-                                                            ? BoxDecoration(
-                                                                color: widget
-                                                                            .parentBackgroundColor ==
-                                                                        const Color(
-                                                                            0xFF18181B)
-                                                                    ? Colors
-                                                                        .white
-                                                                        .withOpacity(
-                                                                            0.05)
-                                                                    : const Color(
-                                                                            0xFF18181B)
-                                                                        .withOpacity(
-                                                                            0.05),
-                                                                borderRadius:
-                                                                    BorderRadius
-                                                                        .zero,
-                                                              )
-                                                            : null,
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                        horizontal: 20),
-                                                    child: TextField(
-                                                      controller:
-                                                          textEditingController,
-                                                      textAlign:
-                                                          TextAlign.center,
-                                                      textAlignVertical:
-                                                          TextAlignVertical
-                                                              .center,
-                                                      cursorColor:
-                                                          widget.displayColor,
-                                                      minLines: 1,
-                                                      maxLines: 10,
-                                                      style: TextStyle(
-                                                        color:
-                                                            widget.displayColor,
-                                                        fontSize: 35,
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        letterSpacing: -2.5,
-                                                      ),
+                                                  child: IntrinsicWidth(
+                                                    child: Container(
                                                       decoration:
-                                                          InputDecoration(
-                                                        hintText: "تغییر متن",
-                                                        border:
-                                                            InputBorder.none,
-                                                        contentPadding:
-                                                            EdgeInsets.zero,
-                                                        isDense: true,
+                                                          hasTextBackgroundLocal
+                                                              ? BoxDecoration(
+                                                                  color: widget
+                                                                              .parentBackgroundColor ==
+                                                                          const Color(
+                                                                              0xFF18181B)
+                                                                      ? Colors
+                                                                          .white
+                                                                          .withOpacity(
+                                                                              0.05)
+                                                                      : const Color(
+                                                                              0xFF18181B)
+                                                                          .withOpacity(
+                                                                              0.05),
+                                                                  borderRadius:
+                                                                      BorderRadius
+                                                                          .zero,
+                                                                )
+                                                              : null,
+                                                      padding: EdgeInsets.zero,
+                                                      child: TextField(
+                                                        controller:
+                                                            textEditingController,
+                                                        textAlign:
+                                                            TextAlign.center,
+                                                        textAlignVertical:
+                                                            TextAlignVertical
+                                                                .center,
+                                                        cursorColor:
+                                                            widget.displayColor,
+                                                        minLines: 1,
+                                                        maxLines: 10,
+                                                        style: TextStyle(
+                                                          color: widget
+                                                              .displayColor,
+                                                          fontSize: 35,
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                          letterSpacing: -2.5,
+                                                        ),
+                                                        decoration:
+                                                            InputDecoration(
+                                                          hintText: "تغییر متن",
+                                                          border:
+                                                              InputBorder.none,
+                                                          contentPadding:
+                                                              EdgeInsets.zero,
+                                                          isDense: true,
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
