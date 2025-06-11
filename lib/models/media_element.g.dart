@@ -24,13 +24,15 @@ class MediaElementAdapter extends TypeAdapter<MediaElement> {
       width: fields[4] as double,
       height: fields[5] as double,
       isVideo: fields[6] as bool,
+      index: fields[7] as int,
+      scale: fields[8] as double,
     );
   }
 
   @override
   void write(BinaryWriter writer, MediaElement obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(9)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -44,7 +46,11 @@ class MediaElementAdapter extends TypeAdapter<MediaElement> {
       ..writeByte(5)
       ..write(obj.height)
       ..writeByte(6)
-      ..write(obj.isVideo);
+      ..write(obj.isVideo)
+      ..writeByte(7)
+      ..write(obj.index)
+      ..writeByte(8)
+      ..write(obj.scale);
   }
 
   @override

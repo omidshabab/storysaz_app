@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:ionicons/ionicons.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:storysaz/widgets/icon_button.dart';
@@ -11,7 +10,12 @@ import '../widgets/draggable_text.dart';
 import '../widgets/draggable_media.dart';
 import '../models/media_element.dart';
 import 'dart:io';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:async';
+import 'package:flutter/rendering.dart';
+import 'package:indexed/indexed.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 class StoryEditorScreen extends StatefulWidget {
   const StoryEditorScreen({super.key});
@@ -30,7 +34,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen>
   bool _isSolidColorBackground = false;
   Color _solidBackgroundColor = Colors.white;
   int _savedBackgroundColorValue = Colors.white.value;
-  final ImagePicker _picker = ImagePicker();
+  int _zIndexCounter = 0;
 
   IconData _saveIcon = Ionicons.cloud_download_outline;
   bool _isSaving = false;
@@ -68,6 +72,20 @@ class _StoryEditorScreenState extends State<StoryEditorScreen>
         _solidBackgroundColor = Color(savedBgColor);
       });
     }
+
+    // Initialize zIndexCounter to the maximum existing index
+    int maxIndex = 0;
+    for (var text in texts) {
+      if (text.index > maxIndex) {
+        maxIndex = text.index;
+      }
+    }
+    for (var media in mediaElements) {
+      if (media.index > maxIndex) {
+        maxIndex = media.index;
+      }
+    }
+    _zIndexCounter = maxIndex;
   }
 
   Future<void> saveStory() async {
@@ -85,6 +103,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen>
       x: x,
       y: y,
       text: "لورم ایپسوم ...",
+      index: ++_zIndexCounter,
     );
     setState(() {
       texts.add(newText);
@@ -148,51 +167,72 @@ class _StoryEditorScreenState extends State<StoryEditorScreen>
   Future<void> _pickMedia() async {
     try {
       debugPrint('Starting media picker...');
-      // Request photo library permission
-      var status = await Permission.photos.status;
-      debugPrint('Current permission status: $status');
 
-      if (status.isDenied) {
-        debugPrint('Permission denied, requesting...');
-        status = await Permission.photos.request();
-        debugPrint('New permission status: $status');
-      }
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.media,
+        allowMultiple: false,
+      );
 
-      if (status.isPermanentlyDenied) {
-        // Open app settings if permission is permanently denied
-        await openAppSettings();
+      if (result == null) {
+        debugPrint('No file selected');
         return;
       }
 
-      if (status.isGranted) {
-        debugPrint('Permission granted, opening picker...');
-        final XFile? media = await _picker.pickMedia();
-        debugPrint('Picker result: ${media?.path}');
+      final originalFile = File(result.files.single.path!);
+      final isVideo = result.files.single.path!.toLowerCase().endsWith('.mp4');
+      // debugPrint('Selected file: ${originalFile.path}, isVideo: $isVideo');
 
-        if (media != null) {
-          final isVideo = media.path.toLowerCase().endsWith('.mp4');
-          debugPrint('Is video: $isVideo');
+      // Get the application documents directory
+      final appDocDir = await getApplicationDocumentsDirectory();
+      final String fileName = p.basename(originalFile.path);
+      final String localPath = p.join(appDocDir.path, fileName);
+      final File newFile = await originalFile.copy(localPath);
 
-          final newMedia = MediaElement(
-            id: const Uuid().v4(),
-            path: media.path,
-            x: 100,
-            y: 100,
-            width: 200,
-            height: 200,
-            isVideo: isVideo,
-          );
-          setState(() {
-            mediaElements.add(newMedia);
-            selectedMedia = newMedia;
-            selectedText = null;
-          });
-          saveStory();
-          debugPrint('Media added successfully');
+      double mediaWidth = 200;
+      double mediaHeight = 200;
+
+      if (!isVideo) {
+        final Image image = Image.file(newFile);
+        final Completer<ImageInfo> completer = Completer<ImageInfo>();
+        image.image
+            .resolve(const ImageConfiguration())
+            .addListener(ImageStreamListener((ImageInfo info, bool _) {
+          completer.complete(info);
+        }));
+        ImageInfo imageInfo = await completer.future;
+        mediaWidth = imageInfo.image.width.toDouble();
+        mediaHeight = imageInfo.image.height.toDouble();
+
+        // Normalize dimensions to fit within a reasonable editor size, e.g., max width of 300
+        if (mediaWidth > 300) {
+          mediaHeight = (mediaHeight / mediaWidth) * 300;
+          mediaWidth = 300;
         }
       } else {
-        debugPrint('Permission not granted: $status');
+        // For videos, set a default width and calculate height for 16:9 aspect ratio
+        mediaWidth = 300;
+        mediaHeight =
+            mediaWidth * (9 / 16); // Assuming 16:9 aspect ratio for videos
       }
+
+      final newMedia = MediaElement(
+        id: const Uuid().v4(),
+        path: newFile.path, // Use the path to the copied file
+        x: 100,
+        y: 100,
+        width: mediaWidth,
+        height: mediaHeight,
+        isVideo: isVideo,
+        index: ++_zIndexCounter,
+      );
+
+      setState(() {
+        mediaElements.add(newMedia);
+        selectedMedia = newMedia;
+        selectedText = null;
+      });
+      saveStory();
+      debugPrint('Media added successfully');
     } catch (e) {
       debugPrint('Error in _pickMedia: $e');
     }
@@ -215,72 +255,106 @@ class _StoryEditorScreenState extends State<StoryEditorScreen>
                 decoration: BoxDecoration(
                   color: _solidBackgroundColor,
                 ),
-                child: Stack(
+                child: Indexer(
                   children: [
                     ...texts.map((textElement) {
-                      return DraggableText(
-                        key: ValueKey(textElement.id),
-                        textElement: textElement,
-                        isSelected: selectedText?.id == textElement.id,
-                        onSelected: (text) {
-                          setState(() {
-                            selectedText = text;
-                            selectedMedia = null;
-                          });
-                        },
-                        onChanged: (text) {
-                          setState(() {
-                            final index =
-                                texts.indexWhere((t) => t.id == text.id);
-                            texts[index] = text;
-                          });
-                          saveStory();
-                        },
-                        onDelete: () {
-                          setState(() {
-                            texts.removeWhere((t) => t.id == textElement.id);
-                            if (selectedText?.id == textElement.id) {
-                              selectedText = null;
-                            }
-                          });
-                          saveStory();
-                        },
-                        displayColor:
-                            _solidBackgroundColor == const Color(0xFF18181B)
-                                ? Colors.white
-                                : Colors.black87,
-                        parentBackgroundColor: _solidBackgroundColor,
+                      return Indexed(
+                        index: textElement.index,
+                        child: DraggableText(
+                          key: ValueKey(textElement.id),
+                          textElement: textElement,
+                          isSelected: selectedText?.id == textElement.id,
+                          onSelected: (textElement) {
+                            setState(() {
+                              selectedText = textElement;
+                              selectedMedia = null;
+                              final int textIndex = texts
+                                  .indexWhere((t) => t.id == textElement.id);
+                              if (textIndex != -1) {
+                                texts[textIndex].index = ++_zIndexCounter;
+                              }
+                              debugPrint(
+                                  'Text selected: ${textElement.id}, new index: ${textElement.index}');
+                            });
+                          },
+                          onChanged: (text) {
+                            setState(() {
+                              final index =
+                                  texts.indexWhere((t) => t.id == text.id);
+                              if (index != -1) {
+                                texts[index] = text;
+                              }
+                              // debugPrint(
+                              //     'Text changed: ${text.id}, new index: ${text.index}');
+                            });
+                            saveStory();
+                          },
+                          onDelete: () {
+                            setState(() {
+                              texts.removeWhere((t) => t.id == textElement.id);
+                              if (selectedText?.id == textElement.id) {
+                                selectedText = null;
+                              }
+                            });
+                            saveStory();
+                          },
+                          displayColor:
+                              _solidBackgroundColor == const Color(0xFF18181B)
+                                  ? Colors.white
+                                  : Colors.black87,
+                          parentBackgroundColor: _solidBackgroundColor,
+                        ),
                       );
                     }),
                     ...mediaElements.map((mediaElement) {
-                      return DraggableMedia(
-                        key: ValueKey(mediaElement.id),
-                        mediaElement: mediaElement,
-                        isSelected: selectedMedia?.id == mediaElement.id,
-                        onSelected: (media) {
-                          setState(() {
-                            selectedMedia = media;
-                            selectedText = null;
-                          });
-                        },
-                        onChanged: (media) {
-                          setState(() {
-                            final index = mediaElements
-                                .indexWhere((m) => m.id == media.id);
-                            mediaElements[index] = media;
-                          });
-                          saveStory();
-                        },
-                        onDelete: () {
-                          setState(() {
-                            mediaElements
-                                .removeWhere((m) => m.id == mediaElement.id);
-                            if (selectedMedia?.id == mediaElement.id) {
-                              selectedMedia = null;
-                            }
-                          });
-                          saveStory();
-                        },
+                      return Indexed(
+                        index: mediaElement.index,
+                        child: DraggableMedia(
+                          key: ValueKey(mediaElement.id),
+                          mediaElement: mediaElement,
+                          isSelected: selectedMedia?.id == mediaElement.id,
+                          onSelected: (mediaElement) {
+                            setState(() {
+                              selectedMedia = mediaElement;
+                              selectedText = null;
+                              final int mediaIndex = mediaElements
+                                  .indexWhere((m) => m.id == mediaElement.id);
+                              if (mediaIndex != -1) {
+                                mediaElements[mediaIndex].index =
+                                    ++_zIndexCounter;
+                              }
+                              debugPrint(
+                                  'Media selected: ${mediaElement.id}, new index: ${mediaElement.index}');
+                            });
+                          },
+                          onChanged: (media) {
+                            setState(() {
+                              final index = mediaElements
+                                  .indexWhere((m) => m.id == media.id);
+                              if (index != -1) {
+                                mediaElements[index] = media;
+                              }
+                              // debugPrint(
+                              //     'Media changed: ${media.id}, new index: ${media.index}');
+                            });
+                            saveStory();
+                          },
+                          onDelete: () {
+                            setState(() {
+                              mediaElements
+                                  .removeWhere((m) => m.id == mediaElement.id);
+                              if (selectedMedia?.id == mediaElement.id) {
+                                selectedMedia = null;
+                              }
+                            });
+                            saveStory();
+                          },
+                          displayColor:
+                              _solidBackgroundColor == const Color(0xFF18181B)
+                                  ? Colors.white
+                                  : Colors.black87,
+                          parentBackgroundColor: _solidBackgroundColor,
+                        ),
                       );
                     }),
                   ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import 'package:indexed/indexed.dart';
 
 part 'story_element.g.dart';
 
@@ -30,7 +31,7 @@ class StoryElement extends HiveObject {
 }
 
 @HiveType(typeId: 1)
-class TextElement extends StoryElement {
+class TextElement extends StoryElement implements IndexedInterface {
   @HiveField(5)
   String text;
 
@@ -42,6 +43,9 @@ class TextElement extends StoryElement {
 
   @HiveField(8)
   bool hasBackground; // New field for text background
+
+  @HiveField(9)
+  int index;
 
   Color get color => Color(colorValue); // Getter for color
 
@@ -55,6 +59,7 @@ class TextElement extends StoryElement {
     double rotation = 0.0,
     double scale = 1.0,
     this.hasBackground = false, // Initialize new field
+    this.index = 0,
   })  : this.colorValue =
             color.value, // Store color value instead of Color object
         super(id: id, x: x, y: y, rotation: rotation, scale: scale);

@@ -1,9 +1,10 @@
 import 'package:hive/hive.dart';
+import 'package:indexed/indexed.dart';
 
 part 'media_element.g.dart';
 
 @HiveType(typeId: 3)
-class MediaElement extends HiveObject {
+class MediaElement extends HiveObject implements IndexedInterface {
   @HiveField(0)
   final String id;
 
@@ -25,6 +26,12 @@ class MediaElement extends HiveObject {
   @HiveField(6)
   final bool isVideo;
 
+  @HiveField(7)
+  int index;
+
+  @HiveField(8)
+  final double scale;
+
   MediaElement({
     required this.id,
     required this.path,
@@ -33,5 +40,7 @@ class MediaElement extends HiveObject {
     required this.width,
     required this.height,
     required this.isVideo,
+    this.index = 0,
+    this.scale = 1.0,
   });
 }
