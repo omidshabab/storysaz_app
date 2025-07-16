@@ -5,6 +5,7 @@ import 'package:ionicons/ionicons.dart';
 import 'package:iconly/iconly.dart';
 import 'dart:io';
 import 'dart:ui';
+import 'package:video_player/video_player.dart';
 
 class DraggableMedia extends StatefulWidget {
   final MediaElement mediaElement;
@@ -40,6 +41,9 @@ class _DraggableMediaState extends State<DraggableMedia>
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   late Animation<double> _opacityAnimation;
+  VideoPlayerController? _videoController;
+  bool _isVideoInitialized = false;
+  bool _isVideoError = false;
 
   @override
   void initState() {
@@ -64,12 +68,193 @@ class _DraggableMediaState extends State<DraggableMedia>
       begin: 1.0,
       end: 0.7,
     ).animate(_animationController);
+
+    if (widget.mediaElement.isVideo) {
+      // Add a small delay before initializing video
+      Future.delayed(const Duration(milliseconds: 100), () {
+        if (mounted) {
+          _initializeVideo();
+        }
+      });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant DraggableMedia oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mediaElement.path != widget.mediaElement.path) {
+      if (widget.mediaElement.isVideo) {
+        _videoController?.dispose(); // Dispose old controller if path changes
+        _initializeVideo();
+      } else if (!widget.mediaElement.isVideo && _videoController != null) {
+        _videoController
+            ?.dispose(); // Dispose video controller if it's no longer a video
+        _videoController = null;
+      }
+    }
+  }
+
+  Future<void> _initializeVideo() async {
+    if (!mounted) return;
+
+    try {
+      final file = File(widget.mediaElement.path);
+
+      _videoController = VideoPlayerController.file(file);
+
+      // Add listener before initialization
+      _videoController!.addListener(() {
+        if (_videoController!.value.hasError) {
+          debugPrint(
+              'Video player error for file ${widget.mediaElement.path}: ${_videoController!.value.errorDescription}');
+          if (mounted) {
+            setState(() {
+              _isVideoError = true;
+            });
+          }
+        }
+      });
+
+      await _videoController!.initialize();
+
+      if (!mounted) return;
+
+      if (_videoController!.value.isInitialized) {
+        // Update dimensions based on video's natural aspect ratio
+        final videoAspectRatio = _videoController!.value.aspectRatio;
+        if (videoAspectRatio > 0) {
+          final newWidth = widget.mediaElement.width;
+          final newHeight = newWidth / videoAspectRatio;
+
+          if (mounted) {
+            setState(() {
+              width = newWidth;
+              height = newHeight;
+            });
+          }
+        }
+
+        _videoController!.setLooping(true);
+        _videoController!.play();
+        setState(() {
+          _isVideoInitialized = true;
+        });
+        debugPrint(
+            'Video initialized successfully for file: ${widget.mediaElement.path}');
+      } else {
+        debugPrint(
+            'Video initialization failed for file ${widget.mediaElement.path}: Not initialized after calling initialize().');
+        setState(() {
+          _isVideoError = true;
+        });
+      }
+    } catch (e) {
+      debugPrint(
+          'Error initializing video for file ${widget.mediaElement.path}: $e');
+      if (mounted) {
+        setState(() {
+          _isVideoError = true;
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
+    try {
+      _videoController?.pause();
+      _videoController?.removeListener(() {});
+      _videoController?.dispose();
+    } catch (e) {
+      debugPrint('Error disposing video controller: $e');
+    }
     _animationController.dispose();
     super.dispose();
+  }
+
+  Widget _buildVideoPlayer() {
+    final File videoFile = File(widget.mediaElement.path);
+    if (!videoFile.existsSync()) {
+      debugPrint(
+          'Synchronous check: Video file not found at path: ${widget.mediaElement.path}');
+      return Container(
+        width: width,
+        height: height,
+        color: Colors.black.withOpacity(0.1),
+        child: const Center(
+          child: Icon(Icons.error_outline, color: Colors.red),
+        ),
+      );
+    }
+
+    if (!_isVideoInitialized || _videoController == null) {
+      return Container(
+        width: width,
+        height: height,
+        color: Colors.black.withOpacity(0.1),
+        child: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    final videoAspectRatio = _videoController!.value.aspectRatio;
+    final containerAspectRatio = width / height;
+
+    Widget videoWidget;
+
+    if (videoAspectRatio > containerAspectRatio) {
+      final newHeight = width / videoAspectRatio;
+      videoWidget = SizedBox(
+        width: width,
+        height: newHeight,
+        child: VideoPlayer(_videoController!),
+      );
+    } else {
+      final newWidth = height * videoAspectRatio;
+      videoWidget = SizedBox(
+        width: newWidth,
+        height: height,
+        child: VideoPlayer(_videoController!),
+      );
+    }
+
+    return Center(
+      child: videoWidget,
+    );
+  }
+
+  // New method to build image widget with file existence check
+  Widget _buildImageWidget({required BoxFit fit}) {
+    final File imageFile = File(widget.mediaElement.path);
+    if (!imageFile.existsSync()) {
+      debugPrint(
+          'Synchronous check: Media file not found at path: ${widget.mediaElement.path}');
+      return Container(
+        width: width,
+        height: height,
+        color: Colors.black.withOpacity(0.1),
+        child: const Center(
+          child: Icon(Icons.error_outline, color: Colors.red),
+        ),
+      );
+    }
+
+    return Image.file(
+      imageFile,
+      fit: fit,
+      errorBuilder: (context, error, stackTrace) {
+        debugPrint('Error loading image in Image.file errorBuilder: $error');
+        return Container(
+          width: width,
+          height: height,
+          color: Colors.black.withOpacity(0.1),
+          child: const Center(
+            child: Icon(Icons.error_outline),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -110,6 +295,7 @@ class _DraggableMediaState extends State<DraggableMedia>
                               Padding(
                                 padding: const EdgeInsets.all(25),
                                 child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.start,
                                   children: [
                                     AppIconButton(
                                       icon: Ionicons.close_outline,
@@ -146,12 +332,9 @@ class _DraggableMediaState extends State<DraggableMedia>
                                     padding: const EdgeInsets.symmetric(
                                         vertical: 35.0),
                                     child: widget.mediaElement.isVideo
-                                        ? const Icon(Icons.play_circle_outline,
-                                            size: 100)
-                                        : Image.file(
-                                            File(widget.mediaElement.path),
-                                            fit: BoxFit.contain,
-                                          ),
+                                        ? _buildVideoPlayer()
+                                        : _buildImageWidget(
+                                            fit: BoxFit.contain),
                                   ),
                                 ),
                               ),
@@ -213,11 +396,8 @@ class _DraggableMediaState extends State<DraggableMedia>
                   width: width,
                   height: height,
                   child: widget.mediaElement.isVideo
-                      ? const Icon(Icons.play_circle_outline, size: 50)
-                      : Image.file(
-                          File(widget.mediaElement.path),
-                          fit: BoxFit.cover,
-                        ),
+                      ? _buildVideoPlayer()
+                      : _buildImageWidget(fit: BoxFit.cover),
                 ),
               ),
             );

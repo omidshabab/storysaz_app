@@ -16,6 +16,9 @@ import 'package:flutter/rendering.dart';
 import 'package:indexed/indexed.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:video_player/video_player.dart';
+import 'package:storysaz/utils/video_composer.dart';
+import 'package:storysaz/utils/story_video_exporter.dart';
 
 class StoryEditorScreen extends StatefulWidget {
   const StoryEditorScreen({super.key});
@@ -53,6 +56,11 @@ class _StoryEditorScreenState extends State<StoryEditorScreen>
   Future<void> loadSavedStory() async {
     final box = Hive.box<List<dynamic>>('stories');
     final settingsBox = Hive.box<int>('app_settings');
+
+    // Clear existing elements to prevent duplicates or stale data
+    texts.clear();
+    mediaElements.clear();
+
     final savedStory = box.get('current_story');
     final savedMedia = box.get('current_media');
     final savedBgColor = settingsBox.get('background_color_value');
@@ -63,8 +71,17 @@ class _StoryEditorScreenState extends State<StoryEditorScreen>
       });
     }
     if (savedMedia != null) {
+      List<MediaElement> validMedia = [];
+      for (var media in savedMedia.cast<MediaElement>()) {
+        final file = File(media.path);
+        if (await file.exists()) {
+          validMedia.add(media);
+        } else {
+          debugPrint('Discarding missing media file from Hive: ${media.path}');
+        }
+      }
       setState(() {
-        mediaElements.addAll(savedMedia.cast<MediaElement>());
+        mediaElements.addAll(validMedia);
       });
     }
     if (savedBgColor != null) {
@@ -119,33 +136,87 @@ class _StoryEditorScreenState extends State<StoryEditorScreen>
       _isSaving = true;
     });
 
-    IconData tempIcon; // Temporarily hold the icon for success/failure
+    IconData tempIcon;
 
     try {
-      final image = await screenshotController.capture();
-      if (image != null) {
-        final result = await ImageGallerySaver.saveImage(image);
+      // Check if story contains any videos
+      bool hasVideos = mediaElements.any((element) => element.isVideo);
 
-        if (mounted) {
-          tempIcon = result['isSuccess']
-              ? Ionicons.checkmark_outline
-              : Ionicons.close_circle_outline;
+      if (hasVideos) {
+        // Get the maximum video duration
+        Duration maxDuration = Duration.zero;
+        for (var element in mediaElements) {
+          if (element.isVideo) {
+            final videoController =
+                VideoPlayerController.file(File(element.path));
+            await videoController.initialize();
+            if (videoController.value.duration > maxDuration) {
+              maxDuration = videoController.value.duration;
+            }
+            await videoController.dispose();
+          }
+        }
 
-          setState(() {
-            _saveIcon = tempIcon;
-          });
+        // Capture frames for the whole story
+        final exporter = StoryVideoExporter(
+          storyBuilder: (time) => buildStoryAtTime(time),
+          duration: maxDuration,
+          fps: 15, // Lower FPS for performance, adjust as needed
+        );
+        final framePaths = await exporter.captureFrames();
 
-          await Future.delayed(const Duration(seconds: 3));
+        // For iOS, we'll need to use a different approach since Process.run isn't supported
+        // For now, we'll just save the first frame as an image
+        if (framePaths.isNotEmpty) {
+          final result = await ImageGallerySaver.saveFile(framePaths.first);
 
           if (mounted) {
+            tempIcon = result['isSuccess']
+                ? Ionicons.checkmark_outline
+                : Ionicons.close_circle_outline;
+
             setState(() {
-              _saveIcon = Ionicons.cloud_download_outline;
-              _isSaving = false;
+              _saveIcon = tempIcon;
             });
+
+            await Future.delayed(const Duration(seconds: 3));
+
+            if (mounted) {
+              setState(() {
+                _saveIcon = Ionicons.cloud_download_outline;
+                _isSaving = false;
+              });
+            }
+          }
+        }
+      } else {
+        // Export as image if no videos
+        final image = await screenshotController.capture();
+        if (image != null) {
+          final result = await ImageGallerySaver.saveImage(image);
+
+          if (mounted) {
+            tempIcon = result['isSuccess']
+                ? Ionicons.checkmark_outline
+                : Ionicons.close_circle_outline;
+
+            setState(() {
+              _saveIcon = tempIcon;
+            });
+
+            await Future.delayed(const Duration(seconds: 3));
+
+            if (mounted) {
+              setState(() {
+                _saveIcon = Ionicons.cloud_download_outline;
+                _isSaving = false;
+              });
+            }
           }
         }
       }
     } catch (e) {
+      debugPrint('Error exporting story: $e');
       if (mounted) {
         tempIcon = Ionicons.close_circle_outline;
         setState(() {
@@ -187,6 +258,9 @@ class _StoryEditorScreenState extends State<StoryEditorScreen>
       final String fileName = p.basename(originalFile.path);
       final String localPath = p.join(appDocDir.path, fileName);
       final File newFile = await originalFile.copy(localPath);
+
+      debugPrint('Copied file to: ${newFile.path}');
+      debugPrint('Copied file exists: ${await newFile.exists()}');
 
       double mediaWidth = 200;
       double mediaHeight = 200;
@@ -233,8 +307,95 @@ class _StoryEditorScreenState extends State<StoryEditorScreen>
       });
       saveStory();
       debugPrint('Media added successfully');
+      debugPrint('Media path saved to Hive: ${newMedia.path}');
     } catch (e) {
       debugPrint('Error in _pickMedia: $e');
+    }
+  }
+
+  /// Builds the story as a widget at a specific time (for video export)
+  Widget buildStoryAtTime(Duration time) {
+    return Container(
+      width: 1080,
+      height: 1920,
+      decoration: BoxDecoration(
+        color: _solidBackgroundColor,
+      ),
+      child: Indexer(
+        children: [
+          ...texts.map((textElement) {
+            return Indexed(
+              index: textElement.index,
+              child: DraggableText(
+                key: ValueKey(textElement.id),
+                textElement: textElement,
+                isSelected: false,
+                onSelected: (_) {},
+                onChanged: (_) {},
+                onDelete: () {},
+                displayColor: _solidBackgroundColor == const Color(0xFF18181B)
+                    ? Colors.white
+                    : Colors.black87,
+                parentBackgroundColor: _solidBackgroundColor,
+              ),
+            );
+          }),
+          ...mediaElements.map((mediaElement) {
+            return Indexed(
+              index: mediaElement.index,
+              child: mediaElement.isVideo
+                  ? FutureBuilder<Widget>(
+                      future: _buildVideoFrame(mediaElement, time),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.done &&
+                            snapshot.hasData) {
+                          return snapshot.data!;
+                        } else {
+                          return SizedBox(
+                            width: mediaElement.width,
+                            height: mediaElement.height,
+                            child: Container(color: Colors.black12),
+                          );
+                        }
+                      },
+                    )
+                  : DraggableMedia(
+                      key: ValueKey(mediaElement.id),
+                      mediaElement: mediaElement,
+                      isSelected: false,
+                      onSelected: (_) {},
+                      onChanged: (_) {},
+                      onDelete: () {},
+                      displayColor:
+                          _solidBackgroundColor == const Color(0xFF18181B)
+                              ? Colors.white
+                              : Colors.black87,
+                      parentBackgroundColor: _solidBackgroundColor,
+                    ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  /// Helper to build a video frame widget at a specific time
+  Future<Widget> _buildVideoFrame(
+      MediaElement mediaElement, Duration time) async {
+    final controller = VideoPlayerController.file(File(mediaElement.path));
+    try {
+      await controller.initialize();
+      await controller.seekTo(time);
+      final widget = SizedBox(
+        width: mediaElement.width,
+        height: mediaElement.height,
+        child: VideoPlayer(controller),
+      );
+      await Future.delayed(
+          const Duration(milliseconds: 50)); // let frame render
+      return widget;
+    } finally {
+      await controller.dispose();
     }
   }
 
